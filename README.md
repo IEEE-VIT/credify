@@ -1,4 +1,4 @@
-# Credifier
+# credify
 
 An extension made to help VIT students sync the course allocation report seamlessly !!
 
@@ -10,7 +10,7 @@ An extension made to help VIT students sync the course allocation report seamles
 ## Installing the extension
 
 - Clone the repo.
-  `https://github.com/guptaharsh13/credifier`
+  `https://github.com/guptaharsh13/credify`
 - Launch Google Chrome and type `chrome:/extensions/` into the address bar, then hit enter
 - Switch on `Developer mode` in the top-right corner
 - You would now have an option to `Load unpacked` in the top-left corner
@@ -29,7 +29,7 @@ An extension made to help VIT students sync the course allocation report seamles
 To get started -
 
 - Clone the repo.
-  `https://github.com/guptaharsh13/Credifier`
+  `https://github.com/guptaharsh13/credify`
 - Checkout to a new branch.
   `git checkout -b my-amazing-feature`
 - Make some amazing changes.
@@ -38,10 +38,10 @@ To get started -
 - `git push origin my-amazing-feature`
 - Open a pull request :)
 
-To start contributing, check out [`CONTRIBUTING.md`](https://github.com/guptaharsh13/Credifier/blob/main/CONTRIBUTING.md) . New contributors are always welcome to support this project.
+To start contributing, check out [`CONTRIBUTING.md`](https://github.com/guptaharsh13/credify/blob/main/CONTRIBUTING.md) . New contributors are always welcome to support this project.
 
 ## License
 
-This project is licensed under [MIT](https://github.com/guptaharsh13/Credifier/blob/master/LICENSE).
+This project is licensed under [MIT](https://github.com/guptaharsh13/credify/blob/master/LICENSE).
 
 <p align="center">Made with ❤ by Harsh Gupta</p>

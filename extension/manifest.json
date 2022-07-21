@@ -1,5 +1,5 @@
 {
-    "name": "Credifier",
+    "name": "Credify",
     "description": "An extension made to help VIT students sync the course allocation report seamlessly !!",
     "version": "1.0.0",
     "manifest_version": 3,
@@ -30,7 +30,7 @@
         "128": "icons/icon_128.png"
     },
     "action": {
-        "default_title": "Credifier - made for VIT students !!",
+        "default_title": "Credify - made for VIT students !!",
         "default_icon": "icons/icon_16.png"
     }
 }
