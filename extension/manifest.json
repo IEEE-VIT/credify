@@ -1,0 +1,36 @@
+{
+    "name": "Credifier",
+    "description": "An extension made to help VIT students sync the course allocation report seamlessly !!",
+    "version": "1.0.0",
+    "manifest_version": 3,
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "js": [
+                "content.js"
+            ],
+            "matches": [
+                "https://vtopreg.vit.ac.in/adddropnew/checkRegistration"
+            ],
+            "exclude_matches": [],
+            "run_at": "document_end"
+        }
+    ],
+    "permissions": [
+        "storage",
+        "notifications"
+    ],
+    "host_permissions": [],
+    "icons": {
+        "16": "icons/icon_16.png",
+        "32": "icons/icon_32.png",
+        "48": "icons/icon_48.png",
+        "128": "icons/icon_128.png"
+    },
+    "action": {
+        "default_title": "Credifier - made for VIT students !!",
+        "default_icon": "icons/icon_16.png"
+    }
+}
