@@ -1,6 +1,6 @@
 # Credifier
 
-An extension made to help VIT students connect to their WiFi seamlessly !!
+An extension made to help VIT students sync the course allocation report seamlessly !!
 
 ## Tech Stack
 
