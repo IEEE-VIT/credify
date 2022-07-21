@@ -224,10 +224,24 @@ const findSameSlot = (slots, slot) => {
   return false;
 };
 
+const sendNotification = (heading, content) => {
+  chrome.runtime.sendMessage(
+    {
+      notify: true,
+      heading,
+      content
+    },
+    () => {
+      console.log("message sent to background.js");
+    }
+  );
+}
+
 const checkSimilarity = (options1, options2) => {
   Object.entries(options1).forEach(([key, value]) => {
     if (!options2.hasOwnProperty(key)) {
-      console.log(`${key} option was removed`);
+      sendNotification(`${key} option was removed`, "The extension is under development, and thus, may be a bug. Let us know of any issues that you encounter. We would be more than happy to help :)")
+      console.log(`${key} option was removed`)
     } else {
       const courses1 = value;
       const courses2 = options2[key];
@@ -245,10 +259,11 @@ const checkSimilarity = (options1, options2) => {
         new_course_names = course_names2.filter(
           (course_name) => !course_names1.includes(course_name)
         );
-        new_course_names.forEach((course_name) => {
-          console.log(`${course_name} was added`);
-          console.log(findFromCourseName(courses2, course_name));
-        });
+        // under development
+        // new_course_names.forEach((course_name) => {
+        //   console.log(`${course_name} was added`);
+        //   console.log(findFromCourseName(courses2, course_name));
+        // });
       }
 
       course_names2.forEach((course_name) => {
@@ -260,30 +275,32 @@ const checkSimilarity = (options1, options2) => {
           const lab1 = course_info1.lab;
           const lab2 = course_info2.lab;
           if (theory1.length != theory2.length) {
-            console.log(`Theory slots were added in ${course_name}`);
+            console.log(`Theory slots were added in ${course_name} (${key})`);
             theory2.forEach((slot) => {
               if (!findSameSlot(theory1, slot)) {
+                sendNotification(`Theory slots were added in ${course_name} (${key})`, `Slot added - ${slot.slots.join(", ")} and Faculty name - ${slot.faculty}`)
                 console.log(
-                  `Slot added - ${slot.slots.join(", ")} and Faculty name - ${
-                    slot.faculty
-                  }`
+                  `Slot added - ${slot.slots.join(", ")} and Faculty name - ${slot.faculty}`
                 );
               }
             });
           }
+
           // assumption - only new slots were added and not removed
           for (let count = 0; count < theory1.length; count++) {
             const slot1 = theory1[count];
             const slot2 = theory2[count];
             if (slot2.seats.available > slot1.seats.available) {
-              console.log(`Seats are available in ${course_name}`);
+              sendNotification(`Seats are available in ${course_name} (${key})`, `Slot - ${slot2.slots.join(", ")} and Faculty name - ${slot2.faculty}`)
+              console.log(`Seats are available in ${course_name} (${key})`);
               console.log(slot2);
             }
           }
           if (lab1.length != lab2.length) {
-            console.log(`Lab slots were added in ${course_name}`);
+            console.log(`Lab slots were added in ${course_name} (${key})`);
             lab2.forEach((slot) => {
               if (!findSameSlot(lab1, slot)) {
+                sendNotification(`Lab slots were added in ${course_name} (${key})`, `Slot added - ${slot.slots.join(", ")} and Faculty name - ${slot.faculty}`)
                 console.log(
                   `Slot added - ${slot.slots.join(", ")} and Faculty name - ${
                     slot.faculty
@@ -296,7 +313,8 @@ const checkSimilarity = (options1, options2) => {
             const slot1 = lab1[count];
             const slot2 = lab2[count];
             if (slot2.seats.available > slot1.seats.available) {
-              console.log(`Seats are available in ${course_name}`);
+              sendNotification(`Seats are available in ${course_name} (${key})`, `Slot - ${slot2.slots.join(", ")} and Faculty name - ${slot2.faculty}`)
+              console.log(`Seats are available in ${course_name} (${key})`);
               console.log(slot2);
             }
           }
