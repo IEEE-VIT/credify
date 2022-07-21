@@ -7,6 +7,19 @@ const convertToHtml = (html_content) => {
   return parser.parseFromString(html_content, "text/html");
 };
 
+const sendNotification = (heading, content) => {
+  chrome.runtime.sendMessage(
+    {
+      notify: true,
+      heading,
+      content,
+    },
+    () => {
+      console.log("message sent to background.js");
+    }
+  );
+};
+
 const makeRequest = (path, custom_params) => {
   let url = new URL(`https://vtopreg.vit.ac.in/adddropnew/${path}`);
 
@@ -28,6 +41,10 @@ const makeRequest = (path, custom_params) => {
         resolve(html_content);
       })
       .catch((e) => {
+        sendNotification(
+          "Could not fetch courses :(",
+          "Please logout and login to resume the extension :) Your current session might have expired"
+        );
         console.log("could not make a successful request");
         console.log(url);
         console.log(e);
@@ -224,24 +241,14 @@ const findSameSlot = (slots, slot) => {
   return false;
 };
 
-const sendNotification = (heading, content) => {
-  chrome.runtime.sendMessage(
-    {
-      notify: true,
-      heading,
-      content
-    },
-    () => {
-      console.log("message sent to background.js");
-    }
-  );
-}
-
 const checkSimilarity = (options1, options2) => {
   Object.entries(options1).forEach(([key, value]) => {
     if (!options2.hasOwnProperty(key)) {
-      sendNotification(`${key} option was removed`, "The extension is under development, and thus, may be a bug. Let us know of any issues that you encounter. We would be more than happy to help :)")
-      console.log(`${key} option was removed`)
+      sendNotification(
+        `${key} option was removed`,
+        "The extension is under development, and thus, may be a bug. Let us know of any issues that you encounter. We would be more than happy to help :)"
+      );
+      console.log(`${key} option was removed`);
     } else {
       const courses1 = value;
       const courses2 = options2[key];
@@ -278,9 +285,16 @@ const checkSimilarity = (options1, options2) => {
             console.log(`Theory slots were added in ${course_name} (${key})`);
             theory2.forEach((slot) => {
               if (!findSameSlot(theory1, slot)) {
-                sendNotification(`Theory slots were added in ${course_name} (${key})`, `Slot added - ${slot.slots.join(", ")} and Faculty name - ${slot.faculty}`)
+                sendNotification(
+                  `Theory slots were added in ${course_name} (${key})`,
+                  `Slot added - ${slot.slots.join(", ")} and Faculty name - ${
+                    slot.faculty
+                  }`
+                );
                 console.log(
-                  `Slot added - ${slot.slots.join(", ")} and Faculty name - ${slot.faculty}`
+                  `Slot added - ${slot.slots.join(", ")} and Faculty name - ${
+                    slot.faculty
+                  }`
                 );
               }
             });
@@ -291,7 +305,12 @@ const checkSimilarity = (options1, options2) => {
             const slot1 = theory1[count];
             const slot2 = theory2[count];
             if (slot2.seats.available > slot1.seats.available) {
-              sendNotification(`Seats are available in ${course_name} (${key})`, `Slot - ${slot2.slots.join(", ")} and Faculty name - ${slot2.faculty}`)
+              sendNotification(
+                `Seats are available in ${course_name} (${key})`,
+                `Slot - ${slot2.slots.join(", ")} and Faculty name - ${
+                  slot2.faculty
+                }`
+              );
               console.log(`Seats are available in ${course_name} (${key})`);
               console.log(slot2);
             }
@@ -300,7 +319,12 @@ const checkSimilarity = (options1, options2) => {
             console.log(`Lab slots were added in ${course_name} (${key})`);
             lab2.forEach((slot) => {
               if (!findSameSlot(lab1, slot)) {
-                sendNotification(`Lab slots were added in ${course_name} (${key})`, `Slot added - ${slot.slots.join(", ")} and Faculty name - ${slot.faculty}`)
+                sendNotification(
+                  `Lab slots were added in ${course_name} (${key})`,
+                  `Slot added - ${slot.slots.join(", ")} and Faculty name - ${
+                    slot.faculty
+                  }`
+                );
                 console.log(
                   `Slot added - ${slot.slots.join(", ")} and Faculty name - ${
                     slot.faculty
@@ -313,7 +337,12 @@ const checkSimilarity = (options1, options2) => {
             const slot1 = lab1[count];
             const slot2 = lab2[count];
             if (slot2.seats.available > slot1.seats.available) {
-              sendNotification(`Seats are available in ${course_name} (${key})`, `Slot - ${slot2.slots.join(", ")} and Faculty name - ${slot2.faculty}`)
+              sendNotification(
+                `Seats are available in ${course_name} (${key})`,
+                `Slot - ${slot2.slots.join(", ")} and Faculty name - ${
+                  slot2.faculty
+                }`
+              );
               console.log(`Seats are available in ${course_name} (${key})`);
               console.log(slot2);
             }
