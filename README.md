@@ -9,7 +9,7 @@ An extension made to help VIT students sync the course allocation report seamles
 
 ## Installing the extension
 
-- Clone the repo.
+- Clone the repo or [Download ZIP](https://github.com/IEEE-VIT/credify/archive/refs/heads/main.zip).
   `https://github.com/guptaharsh13/credify`
 - Launch Google Chrome and type `chrome:/extensions/` into the address bar, then hit enter
 - Switch on `Developer mode` in the top-right corner
@@ -22,7 +22,8 @@ An extension made to help VIT students sync the course allocation report seamles
 - Just login [here](https://vtopreg.vit.ac.in/adddropnew/)
 - Wait for the 10 second timer
 - Click on Start Registration
-- That's it, you're all set to be automatically notified about new additions !!
+- That's it, you're all set to be notified as soon any slot becomes available !!
+- Do check the console logs - would be more accurate as compared to the notifications
 
 ## Getting Started
 

@@ -331,8 +331,8 @@ const main = async () => {
     if (!old_courses || Object.entries(old_courses).length === 0) {
       console.log("run for the 1st time or old_courses is empty");
     } else {
-      console.log("old_courses", old_courses);
-      console.log("courses", courses);
+      // console.log("old_courses", old_courses);
+      // console.log("courses", courses);
       checkSimilarity(old_courses, courses);
     }
   });
