@@ -8,6 +8,7 @@ const convertToHtml = (html_content) => {
 };
 
 const sendNotification = (heading, content) => {
+  // fix required (but temporarily working)
   chrome.runtime.sendMessage(
     {
       notify: true,
@@ -33,7 +34,6 @@ const makeRequest = (path, custom_params) => {
   return new Promise(async (resolve, reject) => {
     fetch(url, { method: "POST" })
       .then((response) => {
-        // console.log(response);
         return response.text();
       })
       .then((html_content) => {
@@ -114,7 +114,8 @@ const scrapeCourses = async (document, page) => {
   const courses = Array.from(tbody.children);
   const final_courses = [];
 
-  courses.forEach(async (course) => {
+  for (let count = 0; count < courses.length; count++) {
+    const course = courses[count];
     const course_name = course.children[0].innerText.replace(/(\t|\n)+/g, "");
     let credit_info = course.children[1].innerText.replace(/(\t|\n)+/g, "");
     credit_info = credit_info.split(" ");
@@ -142,6 +143,7 @@ const scrapeCourses = async (document, page) => {
     });
 
     const course_info = findCourseInfo(temp_html);
+
     final_courses.push({
       course_name,
       credit_info,
@@ -151,7 +153,7 @@ const scrapeCourses = async (document, page) => {
       course_id,
       course_info,
     });
-  });
+  }
 
   return final_courses;
 };
@@ -161,7 +163,8 @@ const scrapeOption = async (option) => {
     registrationOption: option,
     page: 1,
   });
-  const courses = await scrapeCourses(response, 1);
+  const courses = [];
+  courses.push(scrapeCourses(response, 1));
 
   const pages = response.getElementsByClassName("pageLink");
   let last_page_number = pages[pages.length - 2].innerText
@@ -174,20 +177,17 @@ const scrapeOption = async (option) => {
       registrationOption: option,
       page: count,
     });
-
-    const temp_courses = await scrapeCourses(temp_response, count);
-    courses.push(temp_courses);
+    courses.push(scrapeCourses(temp_response, count));
   }
+  const temp_courses = await Promise.all(courses);
   const final_courses = [];
-  courses.forEach((course) => {
-    if (Array.isArray(course)) {
-      course.forEach((temp_course) => {
-        final_courses.push(temp_course);
-      });
+  for (let count = 0; count < temp_courses.length; count++) {
+    if (Array.isArray(temp_courses[count])) {
+      final_courses.push(...temp_courses[count]);
     } else {
-      final_courses.push(course);
+      final_courses.push(temp_courses[count]);
     }
-  });
+  }
   return final_courses;
 };
 
@@ -241,6 +241,47 @@ const findSameSlot = (slots, slot) => {
   return false;
 };
 
+const checkAddedSlots = (slots1, slots2, course_name, cat, slot_type) => {
+  if (!(slots1 && slots2)) {
+    return;
+  }
+  if (slots1.length != slots2.length) {
+    console.log(`${slot_type} slots were added in ${course_name} (${cat})`);
+    slots2.forEach((slot) => {
+      if (!findSameSlot(slots1, slot)) {
+        sendNotification(
+          `${slot_type} slots were added in ${course_name} (${cat})`,
+          `Slot added - ${slot.slots.join("+")} and Faculty name - ${
+            slot.faculty
+          }`
+        );
+        console.log(
+          `Slot added - ${slot.slots.join("+")} and Faculty name - ${
+            slot.faculty
+          }`
+        );
+      }
+    });
+  }
+
+  for (let count = 0; count < slots1.length; count++) {
+    const slot1 = slots1[count];
+    const slot2 = slots2[count];
+    if (
+      slot1.seats.available === 0 &&
+      slot2.seats.available > 0
+      // slot2.seats.available > slot1.seats.available
+    ) {
+      sendNotification(
+        `Seats are available in ${course_name} (${cat})`,
+        `Slot - ${slot2.slots.join("+")} and Faculty name - ${slot2.faculty}`
+      );
+      console.log(`Seats are available in ${course_name} (${cat})`);
+      console.log(slot2);
+    }
+  }
+};
+
 const checkSimilarity = (options1, options2) => {
   Object.entries(options1).forEach(([key, value]) => {
     if (!options2.hasOwnProperty(key)) {
@@ -253,119 +294,86 @@ const checkSimilarity = (options1, options2) => {
       const courses1 = value;
       const courses2 = options2[key];
 
-      const course_names1 = courses1.map((course) => {
-        return course.course_name;
-      });
-      const course_names2 = courses2.map((course) => {
-        return course.course_name;
-      });
+      const course_names1 = courses1.map((course) => course.course_name);
+      const course_names2 = courses2.map((course) => course.course_name);
 
-      let new_course_names = [];
+      let unmatched_course_names = [];
 
       if (course_names1.length != course_names2.length) {
-        new_course_names = course_names2.filter(
-          (course_name) => !course_names1.includes(course_name)
+        unmatched_course_names.push(
+          ...course_names2.filter(
+            (course_name) => !course_names1.includes(course_name)
+          ),
+          ...course_names1.filter(
+            (course_name) => !course_names2.includes(course_name)
+          )
         );
-        // under development
-        // new_course_names.forEach((course_name) => {
-        //   console.log(`${course_name} was added`);
-        //   console.log(findFromCourseName(courses2, course_name));
-        // });
       }
 
       course_names2.forEach((course_name) => {
-        if (!new_course_names.includes(course_name)) {
+        if (!unmatched_course_names.includes(course_name)) {
           const course_info1 = findFromCourseName(courses1, course_name);
           const course_info2 = findFromCourseName(courses2, course_name);
           const theory1 = course_info1.theory;
           const theory2 = course_info2.theory;
           const lab1 = course_info1.lab;
           const lab2 = course_info2.lab;
-          if (theory1.length != theory2.length) {
-            console.log(`Theory slots were added in ${course_name} (${key})`);
-            theory2.forEach((slot) => {
-              if (!findSameSlot(theory1, slot)) {
-                sendNotification(
-                  `Theory slots were added in ${course_name} (${key})`,
-                  `Slot added - ${slot.slots.join(", ")} and Faculty name - ${
-                    slot.faculty
-                  }`
-                );
-                console.log(
-                  `Slot added - ${slot.slots.join(", ")} and Faculty name - ${
-                    slot.faculty
-                  }`
-                );
-              }
-            });
-          }
 
-          // assumption - only new slots were added and not removed
-          for (let count = 0; count < theory1.length; count++) {
-            const slot1 = theory1[count];
-            const slot2 = theory2[count];
-            if (slot2.seats.available > slot1.seats.available) {
-              sendNotification(
-                `Seats are available in ${course_name} (${key})`,
-                `Slot - ${slot2.slots.join(", ")} and Faculty name - ${
-                  slot2.faculty
-                }`
-              );
-              console.log(`Seats are available in ${course_name} (${key})`);
-              console.log(slot2);
-            }
-          }
-          if (lab1.length != lab2.length) {
-            console.log(`Lab slots were added in ${course_name} (${key})`);
-            lab2.forEach((slot) => {
-              if (!findSameSlot(lab1, slot)) {
-                sendNotification(
-                  `Lab slots were added in ${course_name} (${key})`,
-                  `Slot added - ${slot.slots.join(", ")} and Faculty name - ${
-                    slot.faculty
-                  }`
-                );
-                console.log(
-                  `Slot added - ${slot.slots.join(", ")} and Faculty name - ${
-                    slot.faculty
-                  }`
-                );
-              }
-            });
-          }
-          for (let count = 0; count < lab1.length; count++) {
-            const slot1 = lab1[count];
-            const slot2 = lab2[count];
-            if (slot2.seats.available > slot1.seats.available) {
-              sendNotification(
-                `Seats are available in ${course_name} (${key})`,
-                `Slot - ${slot2.slots.join(", ")} and Faculty name - ${
-                  slot2.faculty
-                }`
-              );
-              console.log(`Seats are available in ${course_name} (${key})`);
-              console.log(slot2);
-            }
-          }
+          checkAddedSlots(theory1, theory2, course_name, key, "Theory");
+          checkAddedSlots(lab1, lab2, course_name, key, "Lab");
         }
       });
     }
   });
 };
 
+const convertToNames = (options) => {
+  const course_names = [];
+  Object.entries(options).forEach(([option, courses]) => {
+    course_names.push(...courses.map((course) => course.course_name));
+  });
+  return course_names;
+};
+
+const findCat = (options, course_name) => {
+  options = Object.entries(options);
+  for (let i = 0; i < options.length; i++) {
+    const cat = Object.keys(options)[i];
+    const courses = options[i][1];
+    for (let j = 0; j < courses.length; j++) {
+      if (courses[j].course_name === course_name) {
+        return { cat, course: courses[j] };
+      }
+    }
+  }
+};
+
 const main = async () => {
   const courses = await findCourses();
-  chrome.storage.local.get(["courses"], (response) => {
+  const course_names = convertToNames(courses);
+  chrome.storage.local.get(["courses", "course_names"], (response) => {
     old_courses = response.courses;
     if (!old_courses || Object.entries(old_courses).length === 0) {
       console.log("run for the 1st time or old_courses is empty");
     } else {
-      // console.log("old_courses", old_courses);
-      // console.log("courses", courses);
       checkSimilarity(old_courses, courses);
     }
+
+    old_course_names = response.course_names;
+    if (old_course_names) {
+      const new_course_names = course_names.filter(
+        (course_name) => !old_course_names.includes(course_name)
+      );
+      new_course_names.forEach((course_name) => {
+        const course = findCat(courses, course_name);
+        // needs a fix - returns undefined
+        sendNotification(`${course_name} has been added in ${course.cat}`);
+        console.log(`${course_name} has been added in ${course.cat}`);
+        console.log(course);
+      });
+    }
   });
-  chrome.storage.local.set({ courses }, () => {
+  chrome.storage.local.set({ courses, course_names }, () => {
     console.log("successfully synced courses");
   });
 };
