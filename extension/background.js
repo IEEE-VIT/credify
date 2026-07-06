@@ -7,5 +7,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       iconUrl: "icons/icon_128.png",
     });
     sendResponse({ ok: true });
+  } else if (request.log) {
+    console.log("[credify]", request.log); // mirror content-script status to SW console
   }
 });
