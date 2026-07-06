@@ -1,17 +1,13 @@
-console.log("hello from background.js");
-
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.notify) {
-      const options = {
-        type: "basic",
-        title: request.heading,
-        message: request.content,
-        iconUrl: "icons/icon_128.png",
-      };
-
-        chrome.notifications.create(options, (id) => {
-          console.log(`notification sent - ${id}`);
-        });
-      
-    }
-  });
+  if (request.notify) {
+    chrome.notifications.create({
+      type: "basic",
+      title: request.heading,
+      message: request.content,
+      iconUrl: "icons/icon_128.png",
+    });
+    sendResponse({ ok: true });
+  } else if (request.log) {
+    console.log("[credify]", request.log); // mirror content-script status to SW console
+  }
+});

@@ -1,385 +1,215 @@
-window.onload = () => {
-  console.log("hello from content.js");
+const BASE = "https://vtopreg.vit.ac.in/tablet/";
+
+// Log to BOTH the page console and the service-worker console (the reliable one:
+// chrome://extensions -> Credify -> "service worker").
+const log = (msg) => {
+  console.log("[credify]", msg);
+  chrome.runtime.sendMessage({ log: msg }).catch(() => {});
 };
 
-const convertToHtml = (html_content) => {
-  const parser = new DOMParser();
-  return parser.parseFromString(html_content, "text/html");
+log("loaded: " + location.href);
+
+const notify = async (heading, content) => {
+  try {
+    await chrome.runtime.sendMessage({ notify: true, heading, content });
+  } catch {
+    log("notify failed");
+  }
 };
 
-const sendNotification = (heading, content) => {
-  // fix required (but temporarily working)
-  chrome.runtime.sendMessage(
-    {
-      notify: true,
-      heading,
-      content,
-    },
-    () => {
-      console.log("message sent to background.js");
-    }
-  );
+// CSRF is not enforced for these read endpoints — the site's own
+// viewSearchRegistrationOption/getResults/ViewSlotsBack POST here cookie-only.
+const post = async (path, params = {}) => {
+  const res = await fetch(BASE + path, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams(params).toString(),
+  });
+  return new DOMParser().parseFromString(await res.text(), "text/html");
 };
 
-const makeRequest = (path, custom_params) => {
-  let url = new URL(`https://vtopreg.vit.ac.in/adddropnew/${path}`);
-
-  let params = {
-    _csrf: document.getElementsByName("_csrf")[0].value,
-    ...custom_params,
+// ---- course catalog (per category) -----------------------------------------
+const scrapeCourse = (tr) => {
+  const cells = tr.children;
+  const spans = cells[0].querySelectorAll("span");
+  const btn = tr.querySelector("[data-parameter1]");
+  return {
+    code: (spans[0]?.textContent || "").trim(),
+    title: (spans[1]?.textContent || "").trim(),
+    type: (spans[2]?.textContent || "").trim(),
+    credit: (cells[2]?.textContent || "").trim(),
+    registered: (cells[6]?.textContent || "").toLowerCase().includes("register"),
+    registerable: !!btn, // has a "Proceed" button = open to register
+    id: btn ? btn.getAttribute("data-parameter1") : null,
   };
+};
 
-  url.search = new URLSearchParams(params).toString();
+// One processRegistrationOption response inlines every page as #pageDivId1..N.
+const scrapeCategory = (doc) =>
+  Array.from(doc.querySelectorAll("[id^=pageDivId] tbody tr"))
+    .map(scrapeCourse)
+    .filter((c) => c.code);
 
-  return new Promise(async (resolve, reject) => {
-    fetch(url, { method: "POST" })
-      .then((response) => {
-        return response.text();
-      })
-      .then((html_content) => {
-        html_content = convertToHtml(html_content);
-        resolve(html_content);
-      })
-      .catch((e) => {
-        sendNotification(
-          "Could not fetch courses :(",
-          "Please logout and login to resume the extension :) Your current session might have expired"
-        );
-        console.log("could not make a successful request");
-        console.log(url);
-        console.log(e);
-        reject(e);
+const fetchCatalog = async () => {
+  const optionsDoc = await post("viewRegistrationOption");
+  const options = Array.from(
+    optionsDoc.getElementsByName("registrationOption"),
+    (r) => r.value
+  );
+  const catalog = {};
+  for (const opt of options) {
+    const doc = await post("processRegistrationOption", {
+      registrationOption: opt,
+      pageSize: 10,
+      page: 1,
+      subCourseOption: "",
+      flag: 0,
+    });
+    catalog[opt] = scrapeCategory(doc); // categories that error just yield []
+  }
+  return catalog;
+};
+
+// ---- slots + seats (per course) --------------------------------------------
+// processCourseRegistration renders the slot-selection page. It's read-only —
+// actual registration is a separate endpoint (registerCourse -> processRegisterCourse).
+// A permitted course returns <form id="regForm">; a blocked one returns the list.
+const scrapeSlots = (doc) => {
+  const slots = [];
+  for (const radio of doc.querySelectorAll("input[name^=classnbr]")) {
+    const tr = radio.closest("tr");
+    if (!tr) continue;
+    const tds = tr.querySelectorAll("td"); // [slot, venue, faculty, seat-td]
+    const seatSpan = radio.closest("td")?.querySelector("span");
+    const available = parseInt((seatSpan?.textContent || "").trim(), 10);
+    slots.push({
+      slot: (tds[0]?.textContent || "").trim(),
+      venue: (tds[1]?.textContent || "").trim(),
+      faculty: (tds[2]?.textContent || "").trim(),
+      available: Number.isNaN(available) ? null : available,
+      classId: radio.value, // stable key, e.g. "GEN/VL2026270103582"
+      component: radio.name, // classnbr1=theory, classnbr2=lab, classnbr3=embedded
+    });
+  }
+  return slots;
+};
+
+// { "OPT|CODE": [slots] }. Skips whole categories that come back "not permitted".
+// ponytail: one request per registerable course in permitted categories — the
+// volume ceiling. Blocked categories short-circuit after their first probe.
+const fetchSlots = async (catalog) => {
+  const out = {};
+  for (const [opt, courses] of Object.entries(catalog)) {
+    let permitted = true;
+    for (const c of courses) {
+      if (!permitted || !c.registerable || !c.id) continue;
+      const doc = await post("processCourseRegistration", {
+        courseId: c.id,
+        page: 1,
+        searchType: 0,
+        searchVal: "NONE",
       });
-  });
-};
-
-const scrapeSlot = (slot) => {
-  let slot_names = slot.children[0].innerText.replace(/(\t|\n)+/g, "").trim();
-  slot_names = slot_names.split("+");
-  const venue = slot.children[1].innerText.replace(/(\t|\n)+/g, "").trim();
-  const faculty = slot.children[2].innerText.replace(/(\t|\n)+/g, "").trim();
-  let clashed = slot.children[3].innerText.toLowerCase();
-  clashed = clashed.includes("clashed") || clashed.includes("similar");
-  const total = parseInt(
-    slot.children[4].innerText.replace(/(\t|\n)+/g, "").trim()
-  );
-  const alloted = parseInt(
-    slot.children[5].innerText.replace(/(\t|\n)+/g, "").trim()
-  );
-  const available = parseInt(
-    slot.children[6].innerText.replace(/(\t|\n)+/g, "").trim()
-  );
-
-  const seats = {
-    total,
-    alloted,
-    available,
-  };
-  return { slots: slot_names, venue, faculty, clashed, seats };
-};
-
-const findCourseInfo = (document) => {
-  const theory_slots = [];
-  const lab_slots = [];
-
-  const thead = document.getElementsByTagName("thead")[1];
-
-  const slots = Array.from(thead.children).slice(2);
-
-  for (let count = 0; count < slots.length; count++) {
-    if (slots[count].children[0].innerText.toLowerCase().includes("project")) {
-      break;
-    }
-    if (slots[count].children[0].innerText.toLowerCase().includes("lab")) {
-      for (let index = count + 1; index < slots.length; index++) {
-        if (
-          slots[index].children[0].innerText.toLowerCase().includes("project")
-        ) {
-          break;
-        }
-        const slot_info = scrapeSlot(slots[index]);
-        lab_slots.push(slot_info);
+      if (!doc.getElementById("regForm")) {
+        permitted = false; // "already earned required credits" wall for this category
+        continue;
       }
-      break;
-    }
-    const slot_info = scrapeSlot(slots[count]);
-    theory_slots.push(slot_info);
-  }
-
-  return { theory: theory_slots, lab: lab_slots };
-};
-
-const scrapeCourses = async (document, page) => {
-  const tbody = document.querySelector(`#pageDivId${page} tbody`);
-  const courses = Array.from(tbody.children);
-  const final_courses = [];
-
-  for (let count = 0; count < courses.length; count++) {
-    const course = courses[count];
-    const course_name = course.children[0].innerText.replace(/(\t|\n)+/g, "");
-    let credit_info = course.children[1].innerText.replace(/(\t|\n)+/g, "");
-    credit_info = credit_info.split(" ");
-    lecture = credit_info[0];
-    tutorial = credit_info[1];
-    practical = credit_info[2];
-    project = credit_info[3];
-    credit_info = {
-      lecture,
-      tutorial,
-      practical,
-      project,
-    };
-    const credits = course.children[2].innerText.replace(/(\t|\n)+/g, "");
-    const pre_requisite = course.children[3].innerText.replace(/(\t|\n)+/g, "");
-    const done =
-      course.children[6].innerText.replace(/(\t|\n)+/g, "") === "-"
-        ? false
-        : true;
-    const course_id =
-      course.children[7].children[0].getAttribute("data-parameter1");
-
-    const temp_html = await makeRequest("processViewSlots", {
-      courseId: course_id,
-    });
-
-    const course_info = findCourseInfo(temp_html);
-
-    final_courses.push({
-      course_name,
-      credit_info,
-      credits,
-      pre_requisite,
-      done,
-      course_id,
-      course_info,
-    });
-  }
-
-  return final_courses;
-};
-
-const scrapeOption = async (option) => {
-  const response = await makeRequest("processRegistrationOption", {
-    registrationOption: option,
-    page: 1,
-  });
-  const courses = [];
-  courses.push(scrapeCourses(response, 1));
-
-  const pages = response.getElementsByClassName("pageLink");
-  let last_page_number = pages[pages.length - 2].innerText
-    .replace(/(\t|\n)+/g, "")
-    .trim();
-  last_page_number = parseInt(last_page_number);
-
-  for (let count = 2; count <= last_page_number; count++) {
-    const temp_response = await makeRequest("processRegistrationOption", {
-      registrationOption: option,
-      page: count,
-    });
-    courses.push(scrapeCourses(temp_response, count));
-  }
-  const temp_courses = await Promise.all(courses);
-  const final_courses = [];
-  for (let count = 0; count < temp_courses.length; count++) {
-    if (Array.isArray(temp_courses[count])) {
-      final_courses.push(...temp_courses[count]);
-    } else {
-      final_courses.push(temp_courses[count]);
+      out[`${opt}|${c.code}`] = scrapeSlots(doc);
     }
   }
-  return final_courses;
+  return out;
 };
 
-const findCourseOptions = (document) => {
-  const inputs = document.getElementsByName("registrationOption");
-  const options = [];
-  Array.from(inputs)
-    .slice(0, inputs.length - 2)
-    .forEach((option) => {
-      options.push(option.value);
-    });
-  return options;
-};
-
-const findCourses = async () => {
-  const options_html = await makeRequest("viewRegistrationOption");
-  const options = findCourseOptions(options_html);
-  const courses = {};
-  for (let count = 0; count < options.length; count++) {
-    const option = options[count];
-    courses[option] = await scrapeOption(option);
-  }
-  return courses;
-};
-
-const findFromCourseName = (courses, course_name) => {
-  for (let count = 0; count < courses.length; count++) {
-    if (courses[count].course_name === course_name) {
-      return courses[count].course_info;
+// ---- diffs (pure) ----------------------------------------------------------
+const diffCatalog = (oldCat, newCat) => {
+  const events = [];
+  for (const [opt, courses] of Object.entries(newCat)) {
+    const before = Object.fromEntries((oldCat[opt] || []).map((c) => [c.code, c]));
+    for (const c of courses) {
+      const prev = before[c.code];
+      if (!prev) events.push({ type: "new-course", opt, c });
+      else if (!prev.registerable && c.registerable)
+        events.push({ type: "course-open", opt, c });
     }
   }
+  return events;
 };
 
-const findSameSlot = (slots, slot) => {
-  for (let count = 0; count < slots.length; count++) {
-    const temp_slot = slots[count];
-    // check temp_slot === slot
-    if (slot.faculty === temp_slot.faculty) {
-      const slots1 = temp_slot.slots;
-      const slots2 = slot.slots;
+const slotKey = (s) => s.classId || `${s.slot}|${s.faculty}`;
 
-      if (
-        slots1.filter((slot_name) => !slots2.includes(slot_name)).length ===
-          0 && // in 1 but not in 2
-        slots2.filter((slot_name) => !slots1.includes(slot_name)).length === 0 // in 2 but not in 1
-      ) {
-        return true;
-      }
+const diffSlots = (oldSlots, newSlots) => {
+  const events = [];
+  for (const [key, slots] of Object.entries(newSlots)) {
+    const before = Object.fromEntries(
+      (oldSlots[key] || []).map((s) => [slotKey(s), s])
+    );
+    for (const s of slots) {
+      const prev = before[slotKey(s)];
+      if (!prev) events.push({ type: "slot-added", key, s });
+      else if ((prev.available || 0) === 0 && (s.available || 0) > 0)
+        events.push({ type: "seats-open", key, s });
     }
   }
-  return false;
+  return events;
 };
 
-const checkAddedSlots = (slots1, slots2, course_name, cat, slot_type) => {
-  if (!(slots1 && slots2)) {
+// ---- sync ------------------------------------------------------------------
+const sync = async () => {
+  // The reg shell always has #mainPageForm; login page and unrelated frames don't.
+  if (!document.getElementById("mainPageForm")) {
+    log("not the registration page — skipping");
     return;
   }
-  if (slots1.length != slots2.length) {
-    console.log(`${slot_type} slots were added in ${course_name} (${cat})`);
-    slots2.forEach((slot) => {
-      if (!findSameSlot(slots1, slot)) {
-        sendNotification(
-          `${slot_type} slots were added in ${course_name} (${cat})`,
-          `Slot added - ${slot.slots.join("+")} and Faculty name - ${
-            slot.faculty
-          }`
-        );
-        console.log(
-          `Slot added - ${slot.slots.join("+")} and Faculty name - ${
-            slot.faculty
-          }`
-        );
+
+  log("sync...");
+  const catalog = await fetchCatalog();
+  const slots = await fetchSlots(catalog);
+  const courseCount = Object.values(catalog).reduce((n, a) => n + a.length, 0);
+  const slotCount = Object.values(slots).reduce((n, a) => n + a.length, 0);
+
+  const prev = await chrome.storage.local.get(["catalog", "slots"]);
+  if (prev.catalog || prev.slots) {
+    for (const e of diffCatalog(prev.catalog || {}, catalog)) {
+      if (e.type === "new-course") {
+        notify(`New course in ${e.opt}`, `${e.c.code} - ${e.c.title}`);
+        log(`new-course: ${e.c.code} (${e.opt})`);
+      } else {
+        notify(`${e.c.code} is now open (${e.opt})`, e.c.title);
+        log(`course-open: ${e.c.code} (${e.opt})`);
       }
-    });
+    }
+    for (const e of diffSlots(prev.slots || {}, slots)) {
+      const code = e.key.split("|")[1];
+      if (e.type === "seats-open") {
+        notify(
+          `Seats open: ${code}`,
+          `${e.s.slot} · ${e.s.faculty} — ${e.s.available} available`
+        );
+        log(`seats-open: ${code} ${e.s.slot} = ${e.s.available}`);
+      } else {
+        notify(`New slot: ${code}`, `${e.s.slot} · ${e.s.faculty}`);
+        log(`slot-added: ${code} ${e.s.slot}`);
+      }
+    }
+  } else {
+    log("first run — baseline stored");
   }
 
-  for (let count = 0; count < slots1.length; count++) {
-    const slot1 = slots1[count];
-    const slot2 = slots2[count];
-    if (
-      slot1.seats.available === 0 &&
-      slot2.seats.available > 0
-      // slot2.seats.available > slot1.seats.available
-    ) {
-      sendNotification(
-        `Seats are available in ${course_name} (${cat})`,
-        `Slot - ${slot2.slots.join("+")} and Faculty name - ${slot2.faculty}`
-      );
-      console.log(`Seats are available in ${course_name} (${cat})`);
-      console.log(slot2);
-    }
-  }
+  await chrome.storage.local.set({ catalog, slots });
+  log(`sync done: ${courseCount} courses, ${slotCount} slots tracked`);
 };
 
-const checkSimilarity = (options1, options2) => {
-  Object.entries(options1).forEach(([key, value]) => {
-    if (!options2.hasOwnProperty(key)) {
-      sendNotification(
-        `${key} option was removed`,
-        "The extension is under development, and thus, may be a bug. Let us know of any issues that you encounter. We would be more than happy to help :)"
-      );
-      console.log(`${key} option was removed`);
-    } else {
-      const courses1 = value;
-      const courses2 = options2[key];
-
-      const course_names1 = courses1.map((course) => course.course_name);
-      const course_names2 = courses2.map((course) => course.course_name);
-
-      let unmatched_course_names = [];
-
-      if (course_names1.length != course_names2.length) {
-        unmatched_course_names.push(
-          ...course_names2.filter(
-            (course_name) => !course_names1.includes(course_name)
-          ),
-          ...course_names1.filter(
-            (course_name) => !course_names2.includes(course_name)
-          )
-        );
-      }
-
-      course_names2.forEach((course_name) => {
-        if (!unmatched_course_names.includes(course_name)) {
-          const course_info1 = findFromCourseName(courses1, course_name);
-          const course_info2 = findFromCourseName(courses2, course_name);
-          const theory1 = course_info1.theory;
-          const theory2 = course_info2.theory;
-          const lab1 = course_info1.lab;
-          const lab2 = course_info2.lab;
-
-          checkAddedSlots(theory1, theory2, course_name, key, "Theory");
-          checkAddedSlots(lab1, lab2, course_name, key, "Lab");
-        }
-      });
-    }
-  });
-};
-
-const convertToNames = (options) => {
-  const course_names = [];
-  Object.entries(options).forEach(([option, courses]) => {
-    course_names.push(...courses.map((course) => course.course_name));
-  });
-  return course_names;
-};
-
-const findCat = (options, course_name) => {
-  options = Object.entries(options);
-  for (let i = 0; i < options.length; i++) {
-    const cat = Object.keys(options)[i];
-    const courses = options[i][1];
-    for (let j = 0; j < courses.length; j++) {
-      if (courses[j].course_name === course_name) {
-        return { cat, course: courses[j] };
-      }
-    }
+let running = false; // prevent overlapping runs if a sync outlasts the interval
+const run = async () => {
+  if (running) return;
+  running = true;
+  try {
+    await sync();
+  } catch (e) {
+    log("sync failed: " + (e && e.stack ? e.stack : e));
+  } finally {
+    running = false;
   }
 };
 
-const main = async () => {
-  const courses = await findCourses();
-  const course_names = convertToNames(courses);
-  chrome.storage.local.get(["courses", "course_names"], (response) => {
-    old_courses = response.courses;
-    if (!old_courses || Object.entries(old_courses).length === 0) {
-      console.log("run for the 1st time or old_courses is empty");
-    } else {
-      checkSimilarity(old_courses, courses);
-    }
-
-    old_course_names = response.course_names;
-    if (old_course_names) {
-      const new_course_names = course_names.filter(
-        (course_name) => !old_course_names.includes(course_name)
-      );
-      new_course_names.forEach((course_name) => {
-        const course = findCat(courses, course_name);
-        // needs a fix - returns undefined
-        sendNotification(`${course_name} has been added in ${course.cat}`);
-        console.log(`${course_name} has been added in ${course.cat}`);
-        console.log(course);
-      });
-    }
-  });
-  chrome.storage.local.set({ courses, course_names }, () => {
-    console.log("successfully synced courses");
-  });
-};
-
-const interval = 1 * 60 * 1000; // 1 minute
-
-setInterval(async () => {
-  await main();
-}, interval);
+setTimeout(run, 2000); // let the SPA settle after load
+setInterval(run, 60 * 1000);

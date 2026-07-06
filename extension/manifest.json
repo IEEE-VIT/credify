@@ -12,9 +12,10 @@
                 "content.js"
             ],
             "matches": [
-                "https://vtopreg.vit.ac.in/adddropnew/checkRegistration"
+                "https://vtopreg.vit.ac.in/tablet/*"
             ],
             "exclude_matches": [],
+            "all_frames": true,
             "run_at": "document_end"
         }
     ],
