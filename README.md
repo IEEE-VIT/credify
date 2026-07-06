@@ -19,11 +19,21 @@ An extension made to help VIT students sync the course allocation report seamles
 
 ## Using the extension
 
-- Just login [here](https://vtopreg.vit.ac.in/adddropnew/)
-- Wait for the 10 second timer
-- Click on Start Registration
-- That's it, you're all set to be notified as soon any slot becomes available !!
-- Do check the console logs - would be more accurate as compared to the notifications
+- Log in to the registration portal [here](https://vtopreg.vit.ac.in/tablet/checkRegistration)
+- That's it — the extension runs on its own, no button to click
+- Every minute it checks each registration category and notifies you when:
+  - **seats open** in a slot (available count goes from 0 to more than 0)
+  - a **new slot** is added to a course
+  - a **new course** appears, or a course **becomes open** to register
+- The first run just records a baseline; alerts start once something actually changes
+- Categories you've already met the credit requirement for are skipped automatically
+
+### Checking logs
+
+Content-script logs are mirrored to the background service worker for reliable viewing:
+
+- Open `chrome://extensions`, find Credify, and click the **service worker** link
+- The Console tab shows `[credify] ...` status lines (`sync...`, `sync done: N courses, M slots tracked`, and each alert)
 
 ## Getting Started
 
