@@ -1,58 +1,66 @@
 # credify
 
-An extension made to help VIT students sync the course allocation report seamlessly !!
+a chrome extension that watches VIT's course registration page for you.
 
-## Tech Stack
+## what it does
 
-- Javascript
-- Chrome API
+you log into the vtopreg portal once, then the extension checks it every minute for:
 
-## Installing the extension
+- seats opening up in a full slot
+- new slots added to a course
+- new courses appearing, or a course becoming registerable
 
-- Clone the repo or [Download ZIP](https://github.com/IEEE-VIT/credify/archive/refs/heads/main.zip).
+sends a desktop notification when any of these happen. no manual refreshing.
+You can also see the logs in the service worker console
+
+## tech stack
+
+- javascript
+- chrome api
+
+## installing the extension
+
+- clone the repo or [download zip](https://github.com/IEEE-VIT/credify/archive/refs/heads/main.zip)
   `https://github.com/IEEE-VIT/credify`
-- Launch Google Chrome and type `chrome:/extensions/` into the address bar, then hit enter
-- Switch on `Developer mode` in the top-right corner
-- You would now have an option to `Load unpacked` in the top-left corner
-- Click it, then navigate to the cloned repo and select the `extension` folder
-- Congratulations, your extension has been successfully installed !!
+- open chrome, go to `chrome://extensions`
+- turn on `developer mode` (top right)
+- click `load unpacked` (top left)
+- select the `extension` folder from the cloned repo
+- done, extension installed
 
-## Using the extension
+## using the extension
 
-- Log in to the registration portal [here](https://vtopreg.vit.ac.in/tablet/checkRegistration)
-- That's it — the extension runs on its own, no button to click
-- Every minute it checks each registration category and notifies you when:
-  - **seats open** in a slot (available count goes from 0 to more than 0)
-  - a **new slot** is added to a course
-  - a **new course** appears, or a course **becomes open** to register
-- The first run just records a baseline; alerts start once something actually changes
-- Categories you've already met the credit requirement for are skipped automatically
+- log in at the [registration portal](https://vtopreg.vit.ac.in/tablet/checkRegistration)
+- that's it, it runs on its own, no button to click
+- first run just records a baseline, no alerts yet
+- alerts start once something actually changes
+- categories you've already met the credit requirement for get skipped automatically
 
-### Checking logs
+### checking logs
 
-Content-script logs are mirrored to the background service worker for reliable viewing:
+logs are mirrored to the background service worker console:
 
-- Open `chrome://extensions`, find Credify, and click the **service worker** link
-- The Console tab shows `[credify] ...` status lines (`sync...`, `sync done: N courses, M slots tracked`, and each alert)
+- open `chrome://extensions`, find credify, click the `service worker` link
+- console tab shows `[credify] ...` lines: sync status, slot counts, each alert
 
-## Getting Started
+## how to get things rolling
 
-To get started -
+to get started:
 
-- Clone the repo.
+- clone the repo
   `https://github.com/IEEE-VIT/credify`
-- Checkout to a new branch.
+- checkout a new branch
   `git checkout -b my-amazing-feature`
-- Make some amazing changes.
+- make your changes
 - `git add .`
-- `git commit -m "<verb> : <action>."`
+- `git commit -m "<verb>: <action>"`
 - `git push origin my-amazing-feature`
-- Open a pull request :)
+- open a pull request
 
-To start contributing, check out [`CONTRIBUTING.md`](https://github.com/IEEE-VIT/credify/blob/main/CONTRIBUTING.md) . New contributors are always welcome to support this project.
+check out [`CONTRIBUTING.md`](https://github.com/IEEE-VIT/credify/blob/main/CONTRIBUTING.md) to start contributing. new contributors welcome.
 
-## License
+## license
 
-This project is licensed under [MIT](https://github.com/IEEE-VIT/credify/blob/master/LICENSE).
+licensed under [MIT](https://github.com/IEEE-VIT/credify/blob/master/LICENSE).
 
-<p align="center">Made with ❤ by Harsh Gupta</p>
+<p align="center">Originally made by Harsh Gupta (Updated by Vamsi)</p>
