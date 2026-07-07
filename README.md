@@ -1,48 +1,66 @@
 # credify
 
-An extension made to help VIT students sync the course allocation report seamlessly !!
+a chrome extension that watches VIT's course registration page for you.
 
-## Tech Stack
+## what it does
 
-- Javascript
-- Chrome API
+you log into the vtopreg portal once, then the extension checks it every minute for:
 
-## Installing the extension
+- seats opening up in a full slot
+- new slots added to a course
+- new courses appearing, or a course becoming registerable
 
-- Clone the repo or [Download ZIP](https://github.com/IEEE-VIT/credify/archive/refs/heads/main.zip).
+sends a desktop notification when any of these happen. no manual refreshing.
+You can also see the logs in the service worker console
+
+## tech stack
+
+- javascript
+- chrome api
+
+## installing the extension
+
+- clone the repo or [download zip](https://github.com/IEEE-VIT/credify/credify-extension.zip)
   `https://github.com/IEEE-VIT/credify`
-- Launch Google Chrome and type `chrome:/extensions/` into the address bar, then hit enter
-- Switch on `Developer mode` in the top-right corner
-- You would now have an option to `Load unpacked` in the top-left corner
-- Click it, then navigate to the cloned repo and select the `extension` folder
-- Congratulations, your extension has been successfully installed !!
+- open chrome, go to `chrome://extensions`
+- turn on `developer mode` (top right)
+- click `load unpacked` (top left)
+- select the `extension` folder from the cloned repo
+- done, extension installed
 
-## Using the extension
+## using the extension
 
-- Just login [here](https://vtopreg.vit.ac.in/adddropnew/)
-- Wait for the 10 second timer
-- Click on Start Registration
-- That's it, you're all set to be notified as soon any slot becomes available !!
-- Do check the console logs - would be more accurate as compared to the notifications
+- log in at the [registration portal](https://vtopreg.vit.ac.in/tablet/checkRegistration)
+- that's it, it runs on its own, no button to click
+- first run just records a baseline, no alerts yet
+- alerts start once something actually changes
+- categories you've already met the credit requirement for get skipped automatically
 
-## Getting Started
+### checking logs
 
-To get started -
+logs are mirrored to the background service worker console:
 
-- Clone the repo.
+- open `chrome://extensions`, find credify, click the `service worker` link
+- console tab shows `[credify] ...` lines: sync status, slot counts, each alert
+
+## how to get things rolling
+
+to get started:
+
+- clone the repo
   `https://github.com/IEEE-VIT/credify`
-- Checkout to a new branch.
+- checkout a new branch
   `git checkout -b my-amazing-feature`
-- Make some amazing changes.
+- make your changes
 - `git add .`
-- `git commit -m "<verb> : <action>."`
+- `git commit -m "<verb>: <action>"`
 - `git push origin my-amazing-feature`
-- Open a pull request :)
+- open a pull request
 
-To start contributing, check out [`CONTRIBUTING.md`](https://github.com/IEEE-VIT/credify/blob/main/CONTRIBUTING.md) . New contributors are always welcome to support this project.
+check out [`CONTRIBUTING.md`](https://github.com/IEEE-VIT/credify/blob/main/CONTRIBUTING.md) to start contributing. new contributors welcome.
 
-## License
+## license
 
-This project is licensed under [MIT](https://github.com/IEEE-VIT/credify/blob/master/LICENSE).
+licensed under [MIT](https://github.com/IEEE-VIT/credify/blob/master/LICENSE).
 
-<p align="center">Made with ❤ by Harsh Gupta</p>
+<p align="center">Originally made by Harsh Gupta (Updated by Vamsi)</p>
