@@ -20,7 +20,7 @@ You can also see the logs in the service worker console
 
 ## installing the extension
 
-- clone the repo or [download zip](https://github.com/IEEE-VIT/credify/archive/refs/heads/main.zip)
+- clone the repo or [download zip](https://github.com/IEEE-VIT/credify/credify-extension.zip)
   `https://github.com/IEEE-VIT/credify`
 - open chrome, go to `chrome://extensions`
 - turn on `developer mode` (top right)
